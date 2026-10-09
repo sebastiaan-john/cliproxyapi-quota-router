@@ -52,16 +52,14 @@ func TestPickSkipsIneligible(t *testing.T) {
 	observe(r, "exhausted", 0, 2*time.Hour)
 	observe(r, "thin", 1.5, 3*time.Hour) // below the 2% headroom
 	observe(r, "disabled", 90, time.Hour)
-	observe(r, "cooling", 90, time.Hour)
 	observe(r, "hostoff", 90, time.Hour)
 	observe(r, "ok", 20, 4*day)
 	r.Store().ApplyHostStates(map[string]HostAuthState{
-		"cooling":   {NextRetryAfter: clock.Now().Add(10 * time.Minute)},
 		"hostoff":   {Disabled: true},
 		"exhausted": {}, "thin": {}, "disabled": {}, "ok": {},
 	}, clock.Now())
 
-	cands := codexCandidates("exhausted", "thin", "disabled", "cooling", "hostoff", "ok")
+	cands := codexCandidates("exhausted", "thin", "disabled", "hostoff", "ok")
 	cands[2].Status = "disabled"
 	resp, d := r.Pick(pickReq(cands...))
 	mustSelect(t, resp, d, "ok")
@@ -71,8 +69,8 @@ func TestPickSkipsIneligible(t *testing.T) {
 			blocked++
 		}
 	}
-	if blocked != 5 {
-		t.Fatalf("blocked = %d, want 5: %+v", blocked, d.Candidates)
+	if blocked != 4 {
+		t.Fatalf("blocked = %d, want 4: %+v", blocked, d.Candidates)
 	}
 }
 
@@ -87,6 +85,25 @@ func TestHostStateAgesOut(t *testing.T) {
 	observe(r, "a", 90, time.Hour)
 	if resp, d := r.Pick(pickReq(codexCandidates("a")...)); resp.AuthID != "a" {
 		t.Fatalf("stale host state still blocks: %+v", d)
+	}
+}
+
+// The host filters cooling-down credentials per model before calling the
+// scheduler (availableAuthsForSelector upstream). A credential it offers is
+// available now, whatever retry time an earlier host.auth.list reported: the
+// host may have reset the cooldown, or it may apply to a different model.
+func TestOfferedCandidateIsNotVetoedByCachedRetry(t *testing.T) {
+	r, clock := newTestRouter()
+	observe(r, "a", 80, 4*time.Hour)
+	observe(r, "b", 20, 4*time.Hour)
+	r.Store().ApplyHostStates(map[string]HostAuthState{
+		"a": {NextRetryAfter: clock.Now().Add(29 * time.Hour)},
+		"b": {},
+	}, clock.Now())
+	resp, d := r.Pick(pickReq(codexCandidates("a", "b")...))
+	mustSelect(t, resp, d, "a")
+	if v := candidate(t, d, "a"); v.State != stateEligible {
+		t.Fatalf("a = %+v", v)
 	}
 }
 

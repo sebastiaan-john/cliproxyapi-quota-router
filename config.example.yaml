@@ -11,9 +11,17 @@ plugins:
 
       # smart | headroom. expiring-first is another name for smart.
       mode: smart
-      # Skip a credential while any window has less than 2% left. A window at 0%
-      # is skipped even when this is 0.
+      # New sessions skip a credential while any window has less than 2% left.
+      # A window at 0% is skipped even when this is 0.
       minimum_headroom: 0.02
+      # A session already bound to a credential keeps using it down to this
+      # headroom, so the prompt cache built there is not discarded early. Must be
+      # at most minimum_headroom. 0 means: until the quota is actually gone.
+      session_minimum_headroom: 0
+      # Credentials that bill per request (API keys on Claude/Codex, Anthropic
+      # extra usage on an exhausted account) are never chosen unless this is
+      # true, and then only when no subscription quota is usable.
+      paid_fallback: false
       # Used when quota data cannot rank the candidates: round-robin | fill-first | none.
       # none leaves the pick to the host only while no candidate is skipped.
       fallback: round-robin
@@ -34,7 +42,13 @@ plugins:
       tie_tolerance: 0.05
 
       session_affinity: true
+      # Inactivity TTL: every request on a session renews it.
       session_affinity_ttl: 1h
+      # Absolute path of a private (0600) file holding session bindings across
+      # proxy restarts. Stores only session hashes, SHA-256 auth digests and
+      # expiries. Flushed every refresh_interval and on shutdown; a crash loses
+      # bindings made since the last flush. Empty (the default) disables it.
+      # state_file: /var/lib/cliproxyapi/quota-router-state.json
 
       # true: rank candidates from every priority tier, not only the highest.
       across_priorities: false

@@ -74,32 +74,54 @@ func firstHeader(h http.Header, name string) string {
 	return ""
 }
 
+// authDigest is the full SHA-256 of an auth ID, in hex. It is what the state
+// file stores instead of the ID, which is often a file name with an e-mail
+// address in it. It is not reversible; a binding restored from disk is matched
+// by digesting each offered candidate.
+func authDigest(id string) string {
+	sum := sha256.Sum256([]byte(id))
+	return hex.EncodeToString(sum[:])
+}
+
+// binding is one session's credential. authID is empty for a binding restored
+// from disk until a pick resolves it against a live candidate.
 type binding struct {
 	authID  string
+	digest  string
 	expires time.Time
+}
+
+// matches reports whether the binding refers to the given auth ID.
+func (b binding) matches(id string) bool {
+	if b.authID != "" {
+		return b.authID == id
+	}
+	return b.digest != "" && b.digest == authDigest(id)
 }
 
 // affinity maps session keys to the auth they were last routed to.
 type affinity struct {
 	mu       sync.Mutex
 	bindings map[string]binding
+	// gen counts mutations so a save can be skipped when nothing changed.
+	gen uint64
 }
 
 func newAffinity() *affinity {
 	return &affinity{bindings: make(map[string]binding)}
 }
 
-func (a *affinity) lookup(key string, now time.Time) (string, bool) {
+func (a *affinity) lookup(key string, now time.Time) (binding, bool) {
 	if key == "" {
-		return "", false
+		return binding{}, false
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.bindings[key]
 	if !ok || now.After(b.expires) {
-		return "", false
+		return binding{}, false
 	}
-	return b.authID, true
+	return b, true
 }
 
 func (a *affinity) bind(key, authID string, now time.Time, ttl time.Duration) {
@@ -111,7 +133,8 @@ func (a *affinity) bind(key, authID string, now time.Time, ttl time.Duration) {
 	if _, exists := a.bindings[key]; !exists && len(a.bindings) >= maxAffinityEntries {
 		a.evictLocked(now)
 	}
-	a.bindings[key] = binding{authID: authID, expires: now.Add(ttl)}
+	a.bindings[key] = binding{authID: authID, digest: authDigest(authID), expires: now.Add(ttl)}
+	a.gen++
 }
 
 // evictLocked drops expired bindings, or the one closest to expiry if none are.
@@ -130,6 +153,7 @@ func (a *affinity) evictLocked(now time.Time) {
 	if len(a.bindings) >= maxAffinityEntries && oldestKey != "" {
 		delete(a.bindings, oldestKey)
 	}
+	a.gen++
 }
 
 func (a *affinity) prune(now time.Time) {
@@ -138,6 +162,7 @@ func (a *affinity) prune(now time.Time) {
 	for key, b := range a.bindings {
 		if now.After(b.expires) {
 			delete(a.bindings, key)
+			a.gen++
 		}
 	}
 }
@@ -146,4 +171,44 @@ func (a *affinity) size() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return len(a.bindings)
+}
+
+// snapshot returns the live bindings in their on-disk form and the mutation
+// generation they correspond to.
+func (a *affinity) snapshot(now time.Time) ([]stateBinding, uint64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make([]stateBinding, 0, len(a.bindings))
+	for key, b := range a.bindings {
+		if now.After(b.expires) || b.digest == "" {
+			continue
+		}
+		out = append(out, stateBinding{Session: key, Auth: b.digest, Expires: b.expires})
+	}
+	return out, a.gen
+}
+
+// restore adds bindings read from disk for sessions not already bound live.
+// Expired entries are skipped. It returns how many were added.
+func (a *affinity) restore(entries []stateBinding, now time.Time) int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	added := 0
+	for _, e := range entries {
+		if now.After(e.Expires) || e.Session == "" || e.Auth == "" {
+			continue
+		}
+		if _, live := a.bindings[e.Session]; live {
+			continue
+		}
+		if len(a.bindings) >= maxAffinityEntries {
+			break
+		}
+		a.bindings[e.Session] = binding{digest: e.Auth, expires: e.Expires}
+		added++
+	}
+	if added > 0 {
+		a.gen++
+	}
+	return added
 }

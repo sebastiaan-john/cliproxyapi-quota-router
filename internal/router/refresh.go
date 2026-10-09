@@ -26,6 +26,13 @@ var errNoAuthIDs = errors.New("host auth list has no auth IDs")
 func (r *Router) Refresh(ctx context.Context) error {
 	now := r.now()
 	r.aff.prune(now)
+	defer func() {
+		// Bindings change on every pick; the refresh tick is the flush interval.
+		// A crash between ticks loses the bindings made since the last one.
+		if err := r.SaveState(); err != nil && r.log != nil {
+			r.log("warn", "quota-router state save failed", map[string]any{"error": err.Error()})
+		}
+	}()
 	if r.lister == nil {
 		return nil
 	}

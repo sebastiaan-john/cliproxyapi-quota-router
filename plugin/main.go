@@ -156,6 +156,10 @@ func cliproxyPluginShutdown() {
 	hostGate.Unlock()
 	if handler != nil {
 		handler.Router.StopRefresher()
+		// The host does not send plugin.shutdown as an RPC before unloading
+		// (v8.0.13 calls only this entry point), so the last flush of session
+		// bindings happens here. It needs no host callback, only the filesystem.
+		_ = handler.Router.SaveState()
 	}
 }
 

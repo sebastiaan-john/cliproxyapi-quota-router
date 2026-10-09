@@ -191,9 +191,9 @@ func TestClaudeAllExhaustedRejects(t *testing.T) {
 	}
 }
 
-// Extra usage keeps an exhausted account serving, billed to the account. It is
-// used only when nothing else can be ranked, and never turned into a rejection.
-func TestClaudeExtraUsageIsLastResort(t *testing.T) {
+// Extra usage keeps an exhausted account serving, billed to the account. By
+// default it is paid capacity: never chosen, and never handed to the host.
+func TestClaudeExtraUsageIsPaidByDefault(t *testing.T) {
 	r, clock := newTestRouter()
 	h := claudeHeaders(clock.Now(), &cwin{1.0, 2 * time.Hour}, &cwin{0.5, day})
 	h.Set("Anthropic-Ratelimit-Unified-Overage-Status", "allowed")
@@ -202,36 +202,42 @@ func TestClaudeExtraUsageIsLastResort(t *testing.T) {
 
 	resp, d := r.Pick(claudePick(claudeCandidates("credits", "ok")...))
 	mustSelect(t, resp, d, "ok")
-	if v := candidate(t, d, "credits"); v.State != stateUnknown || !strings.Contains(v.Reason, "extra usage") {
+	if v := candidate(t, d, "credits"); v.State != statePaid || !strings.Contains(v.Reason, "extra usage") {
 		t.Fatalf("credits = %+v", v)
 	}
 
-	// Alone, it goes to the host instead of being rejected.
+	// Alone, it is rejected with the paid code rather than delegated: a
+	// delegated pick would let the host spend on it.
 	resp, d = r.Pick(claudePick(claudeCandidates("credits")...))
-	if resp.Reject || d.Outcome != OutcomeDelegated {
+	if !resp.Reject || resp.RejectCode != RejectCodePaidOnly || d.Outcome != OutcomeRejected {
 		t.Fatalf("resp = %+v, decision = %+v", resp, d)
 	}
 
-	// Next to a blocked account, the plugin picks it itself.
+	// Next to a blocked account the answer is the same.
 	spent := claudeHeaders(clock.Now(), &cwin{1.0, 2 * time.Hour}, &cwin{0.5, day})
 	spent.Set("Anthropic-Ratelimit-Unified-Overage-Status", "rejected")
 	observeClaude(r, "spent", spent)
 	resp, d = r.Pick(claudePick(claudeCandidates("credits", "spent")...))
-	mustSelect(t, resp, d, "credits")
+	if !resp.Reject || resp.RejectCode != RejectCodePaidOnly {
+		t.Fatalf("resp = %+v, decision = %+v", resp, d)
+	}
 }
 
-func TestClaudeAPIKeysAreNotProbed(t *testing.T) {
+func TestClaudeAPIKeysArePaidAndNotProbed(t *testing.T) {
 	r, _ := newTestRouter()
 	cands := claudeCandidates("oauth", "key")
 	cands[1].Attributes = map[string]string{"auth_kind": "apikey"}
 
+	// Mixed pool: the OAuth account is probed, the key is never touched.
 	resp, d := r.Pick(claudePick(cands...))
 	mustSelect(t, resp, d, "oauth")
-	if v := candidate(t, d, "key"); v.State != stateUnknown || !strings.Contains(v.Reason, "API key") {
+	if v := candidate(t, d, "key"); v.State != statePaid || !strings.Contains(v.Reason, "API key") {
 		t.Fatalf("key = %+v", v)
 	}
+	// Key-only pool, as when the host has filtered every OAuth account out:
+	// rejected, not delegated.
 	resp, d = r.Pick(claudePick(cands[1]))
-	if d.Outcome != OutcomeDelegated || resp.DelegateBuiltin == "" {
+	if !resp.Reject || resp.RejectCode != RejectCodePaidOnly || d.Outcome != OutcomeRejected {
 		t.Fatalf("resp = %+v, decision = %+v", resp, d)
 	}
 }
