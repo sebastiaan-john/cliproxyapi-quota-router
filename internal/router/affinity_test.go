@@ -349,3 +349,30 @@ func TestSessionMinimumHeadroomConfig(t *testing.T) {
 		}
 	}
 }
+
+// A model-scoped failure sets the host's aggregate auth status to "error"
+// (MarkResult in sdk/cliproxy/auth/conductor_cooldown.go) while the host keeps
+// offering the credential for every model it did not cool down. Measured end
+// to end: a 429 on the haiku helper left the account offered for opus with
+// status "error". The offer is the host's per-model verdict, so the bound opus
+// session must stay, and the account still ranks for new sessions.
+func TestOfferedErrorStatusKeepsBoundSession(t *testing.T) {
+	r, clock := newTestRouter()
+	observeClaude(r, "a", claudeHeaders(clock.Now(), &cwin{0.2, 4 * time.Hour}, &cwin{0.2, 3 * day}))
+	observeClaude(r, "b", claudeHeaders(clock.Now(), &cwin{0.5, 4 * time.Hour}, &cwin{0.5, 3 * day}))
+	resp, d := r.Pick(sessionReq("a", "b"))
+	mustSelect(t, resp, d, "a")
+
+	req := sessionReq("a", "b")
+	req.Candidates[0].Status = "error"
+	resp, d = r.Pick(req)
+	mustSelect(t, resp, d, "a")
+	if d.Reason != "session affinity" {
+		t.Fatalf("reason = %q", d.Reason)
+	}
+	fresh := claudePick(claudeCandidates("a", "b")...)
+	fresh.Candidates[0].Status = "error"
+	if resp, d := r.Pick(fresh); resp.AuthID != "a" {
+		t.Fatalf("new session picked %q: %+v", resp.AuthID, d.Candidates)
+	}
+}

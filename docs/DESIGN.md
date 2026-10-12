@@ -92,6 +92,14 @@ host behaviour the plugin cannot observe. The disabled flag is kept: a disabled
 credential is never offered anyway, so the check is harmless and documents
 intent. This does not and cannot restore a candidate the host did not offer.
 
+The candidate's own `Status` of `error` is not a veto either. `MarkResult`
+(`sdk/cliproxy/auth/conductor_cooldown.go`) sets that aggregate status after a
+model-scoped failure and the host keeps offering the credential for the models
+it did not cool down; credential-wide failures (unauthorized, credential quota)
+are filtered out before the plugin is asked. An end-to-end run through the
+real loader caught the earlier veto: a 429 on Claude Code's haiku helper moved
+the session's opus requests off the account that held their cache.
+
 ## Persistence
 
 `state_file` is off by default. When on, the file holds the schema version, a

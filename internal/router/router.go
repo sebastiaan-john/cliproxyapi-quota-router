@@ -331,9 +331,11 @@ func (r *Router) classifyWith(c pluginapi.SchedulerAuthCandidate, now time.Time,
 		v.State, v.Reason = stateBlocked, reason
 		return v
 	}
-	switch strings.ToLower(c.Status) {
-	case "disabled", "error":
-		return block("host status " + strings.ToLower(c.Status))
+	// "error" is not a veto: the host sets that aggregate status after any
+	// model-scoped failure and still offers the credential for the models it
+	// did not cool down. Credential-wide failures it does not offer at all.
+	if strings.EqualFold(c.Status, "disabled") {
+		return block("host status disabled")
 	}
 	// The host filters cooled-down and unavailable auths per model before calling
 	// us (availableAuthsForSelector upstream), so an offered candidate is
