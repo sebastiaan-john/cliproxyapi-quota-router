@@ -1,0 +1,791 @@
+[
+  {
+    "case": "initial",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "initial",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "resumed",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "resumed",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "helper-haiku-same-session",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-haiku-4-5-20251001",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "helper-haiku-same-session",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-haiku-4-5-20251001",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "same-session-other-provider",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "codex"
+    ],
+    "model": "gpt-5.4",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "gpt-5.4",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-codex-c"
+    ]
+  },
+  {
+    "case": "same-session-other-provider",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "codex"
+    ],
+    "model": "gpt-5.4",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "gpt-5.4",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-codex-c"
+    ]
+  },
+  {
+    "case": "subagent",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-explore-1",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Agent-Id": [
+        "agent-explore-1"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "subagent",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-explore-1",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Agent-Id": [
+        "agent-explore-1"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "sibling-subagent",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-explore-2",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Agent-Id": [
+        "agent-explore-2"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "sibling-subagent",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-explore-2",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Agent-Id": [
+        "agent-explore-2"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "nested-subagent",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-nested-3",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-explore-1",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Agent-Id": [
+        "agent-nested-3"
+      ],
+      "X-Claude-Code-Parent-Agent-Id": [
+        "agent-explore-1"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "nested-subagent",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-nested-3",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-explore-1",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Agent-Id": [
+        "agent-nested-3"
+      ],
+      "X-Claude-Code-Parent-Agent-Id": [
+        "agent-explore-1"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "body-subagent-json-user-id",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-body-4",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "body-subagent-json-user-id",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-body-4",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "forked-session",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:c9f0f895-fb98-4b91-a8e7-6c3f0b2d7a02",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "c9f0f895-fb98-4b91-a8e7-6c3f0b2d7a02"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "forked-session",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:c9f0f895-fb98-4b91-a8e7-6c3f0b2d7a02",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "c9f0f895-fb98-4b91-a8e7-6c3f0b2d7a02"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "legacy-user-id",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "legacy-user-id",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "legacy-user-id-subagent",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-legacy-5",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "legacy-user-id-subagent",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01:agent:agent-legacy-5",
+      "parent_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "claude-header-outranks-body",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "claude-header-outranks-body",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "claude-body-outranks-generic-header",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:45c48cce-2e2d-4fbd-8a1e-9c4b6d7e8f03",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "Session-Id": [
+        "generic-header-session"
+      ],
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "claude-body-outranks-generic-header",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:45c48cce-2e2d-4fbd-8a1e-9c4b6d7e8f03",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "Session-Id": [
+        "generic-header-session"
+      ],
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "no-identity",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "derived_session_id": "ctx:v1:86d6f51cab3d5585ca3cab836b0198674e0b7acf9ef12aca3132fd25a9807b9b",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "no-identity",
+    "stream": true,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "derived_session_id": "ctx:v1:86d6f51cab3d5585ca3cab836b0198674e0b7acf9ef12aca3132fd25a9807b9b",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "failover-initial",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-a",
+      "ingress-acct-b"
+    ]
+  },
+  {
+    "case": "failover-retry",
+    "stream": false,
+    "provider": "",
+    "providers": [
+      "claude"
+    ],
+    "model": "claude-opus-4-6",
+    "metadata": {
+      "canonical_session_id": "claude:8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01",
+      "requested_model": "claude-opus-4-6",
+      "session_affinity_provider": "mixed"
+    },
+    "headers": {
+      "User-Agent": [
+        "claude-cli/2.1.258 (external, cli)"
+      ],
+      "X-Claude-Code-Session-Id": [
+        "8f14e45f-ceea-467a-9f2b-2f1b8c3c5a01"
+      ]
+    },
+    "candidates": [
+      "ingress-acct-b"
+    ]
+  }
+]

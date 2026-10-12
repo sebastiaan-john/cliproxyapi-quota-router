@@ -10,7 +10,10 @@ import (
 	"github.com/OlivierDijkstra/cliproxyapi-quota-router/internal/quota"
 )
 
-// HostAuthState is the subset of host.auth.list used for eligibility.
+// HostAuthState is the subset of host.auth.list the plugin keeps. Only Disabled
+// affects routing. NextRetryAfter is informational: the host applies its own,
+// current cooldowns when it builds the candidate list, and a value cached here
+// can be hours stale.
 type HostAuthState struct {
 	Disabled       bool
 	NextRetryAfter time.Time
@@ -112,6 +115,45 @@ func (s *Store) ProbedAt(authID string) time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.probedAt[authID]
+}
+
+// Invalidate drops the cached snapshot and probe marker of authID, so the next
+// pick treats the credential as one without quota data. Host state and the
+// listed set are untouched. It reports what was actually dropped.
+func (s *Store) Invalidate(authID string) (snapshotDropped, probeDropped bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.snapshots[authID]; ok {
+		delete(s.snapshots, authID)
+		snapshotDropped = true
+	}
+	if _, ok := s.probedAt[authID]; ok {
+		delete(s.probedAt, authID)
+		probeDropped = true
+	}
+	return snapshotDropped, probeDropped
+}
+
+// KnownIDs returns every auth ID the store has seen: with a snapshot, with a
+// probe marker, or listed by the host.
+func (s *Store) KnownIDs() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := make(map[string]bool, len(s.snapshots)+len(s.probedAt)+len(s.host))
+	for id := range s.snapshots {
+		seen[id] = true
+	}
+	for id := range s.probedAt {
+		seen[id] = true
+	}
+	for id := range s.host {
+		seen[id] = true
+	}
+	out := make([]string, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	return out
 }
 
 // HostState returns the host auth state for authID if the last refresh is

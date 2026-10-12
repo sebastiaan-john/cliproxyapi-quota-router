@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,20 +38,31 @@ const (
 
 // Config is the plugin section under plugins.configs.<plugin-id>.
 type Config struct {
-	Mode               Mode          `yaml:"mode"`
-	MinimumHeadroom    float64       `yaml:"minimum_headroom"`
-	Fallback           Fallback      `yaml:"fallback"`
-	RefreshInterval    time.Duration `yaml:"refresh_interval"`
-	StaleAfter         time.Duration `yaml:"stale_after"`
-	ProbeInterval      time.Duration `yaml:"probe_interval"`
-	MinResetHorizon    time.Duration `yaml:"min_reset_horizon"`
-	SwitchMargin       float64       `yaml:"switch_margin"`
-	TieTolerance       float64       `yaml:"tie_tolerance"`
-	SessionAffinity    bool          `yaml:"session_affinity"`
-	SessionAffinityTTL time.Duration `yaml:"session_affinity_ttl"`
-	AcrossPriorities   bool          `yaml:"across_priorities"`
-	LogDecisions       bool          `yaml:"log_decisions"`
-	RevealAuthIDs      bool          `yaml:"reveal_auth_ids"`
+	Mode            Mode    `yaml:"mode"`
+	MinimumHeadroom float64 `yaml:"minimum_headroom"`
+	// SessionMinimumHeadroom is the headroom a credential must keep to go on
+	// serving a session already bound to it. It is at most MinimumHeadroom and
+	// defaults to 0: a bound session stays until the quota is actually gone, so
+	// the prompt cache built on that credential is not thrown away early.
+	SessionMinimumHeadroom float64       `yaml:"session_minimum_headroom"`
+	Fallback               Fallback      `yaml:"fallback"`
+	RefreshInterval        time.Duration `yaml:"refresh_interval"`
+	StaleAfter             time.Duration `yaml:"stale_after"`
+	ProbeInterval          time.Duration `yaml:"probe_interval"`
+	MinResetHorizon        time.Duration `yaml:"min_reset_horizon"`
+	SwitchMargin           float64       `yaml:"switch_margin"`
+	TieTolerance           float64       `yaml:"tie_tolerance"`
+	SessionAffinity        bool          `yaml:"session_affinity"`
+	SessionAffinityTTL     time.Duration `yaml:"session_affinity_ttl"`
+	AcrossPriorities       bool          `yaml:"across_priorities"`
+	LogDecisions           bool          `yaml:"log_decisions"`
+	RevealAuthIDs          bool          `yaml:"reveal_auth_ids"`
+	// PaidFallback allows credentials that bill per request (API keys, extra
+	// usage) to be chosen when no subscription quota is usable. Off by default.
+	PaidFallback bool `yaml:"paid_fallback"`
+	// StateFile, when set, is an absolute path where session bindings are saved
+	// so they survive a proxy restart. Empty disables persistence.
+	StateFile string `yaml:"state_file"`
 }
 
 // DefaultConfig returns the documented defaults.
@@ -104,9 +116,10 @@ func (c *Config) validate() error {
 	}
 	// NaN compares false against every bound, so it must be rejected explicitly.
 	for name, v := range map[string]float64{
-		"minimum_headroom": c.MinimumHeadroom,
-		"switch_margin":    c.SwitchMargin,
-		"tie_tolerance":    c.TieTolerance,
+		"minimum_headroom":         c.MinimumHeadroom,
+		"session_minimum_headroom": c.SessionMinimumHeadroom,
+		"switch_margin":            c.SwitchMargin,
+		"tie_tolerance":            c.TieTolerance,
 	} {
 		if math.IsNaN(v) || math.IsInf(v, 0) {
 			return fmt.Errorf("%s must be a finite number", name)
@@ -114,6 +127,9 @@ func (c *Config) validate() error {
 	}
 	if c.MinimumHeadroom < 0 || c.MinimumHeadroom >= 1 {
 		return fmt.Errorf("minimum_headroom %v: want a fraction in [0, 1)", c.MinimumHeadroom)
+	}
+	if c.SessionMinimumHeadroom < 0 || c.SessionMinimumHeadroom > c.MinimumHeadroom {
+		return fmt.Errorf("session_minimum_headroom %v: want a fraction in [0, minimum_headroom]", c.SessionMinimumHeadroom)
 	}
 	if c.SwitchMargin < 0 || c.TieTolerance < 0 || c.TieTolerance >= 1 {
 		return fmt.Errorf("switch_margin and tie_tolerance must be non-negative fractions")
@@ -132,43 +148,57 @@ func (c *Config) validate() error {
 	if c.RefreshInterval < 10*time.Second {
 		c.RefreshInterval = 10 * time.Second
 	}
+	c.StateFile = strings.TrimSpace(c.StateFile)
+	if c.StateFile != "" {
+		if !filepath.IsAbs(c.StateFile) {
+			return fmt.Errorf("state_file must be an absolute path")
+		}
+		c.StateFile = filepath.Clean(c.StateFile)
+	}
 	return nil
 }
 
 // ConfigView is the JSON form of Config used in diagnostics.
 type ConfigView struct {
-	Mode               Mode     `json:"mode"`
-	MinimumHeadroom    float64  `json:"minimum_headroom"`
-	Fallback           Fallback `json:"fallback"`
-	RefreshInterval    string   `json:"refresh_interval"`
-	StaleAfter         string   `json:"stale_after"`
-	ProbeInterval      string   `json:"probe_interval"`
-	MinResetHorizon    string   `json:"min_reset_horizon"`
-	SwitchMargin       float64  `json:"switch_margin"`
-	TieTolerance       float64  `json:"tie_tolerance"`
-	SessionAffinity    bool     `json:"session_affinity"`
-	SessionAffinityTTL string   `json:"session_affinity_ttl"`
-	AcrossPriorities   bool     `json:"across_priorities"`
-	LogDecisions       bool     `json:"log_decisions"`
-	RevealAuthIDs      bool     `json:"reveal_auth_ids"`
+	Mode                   Mode     `json:"mode"`
+	MinimumHeadroom        float64  `json:"minimum_headroom"`
+	SessionMinimumHeadroom float64  `json:"session_minimum_headroom"`
+	PaidFallback           bool     `json:"paid_fallback"`
+	Fallback               Fallback `json:"fallback"`
+	RefreshInterval        string   `json:"refresh_interval"`
+	StaleAfter             string   `json:"stale_after"`
+	ProbeInterval          string   `json:"probe_interval"`
+	MinResetHorizon        string   `json:"min_reset_horizon"`
+	SwitchMargin           float64  `json:"switch_margin"`
+	TieTolerance           float64  `json:"tie_tolerance"`
+	SessionAffinity        bool     `json:"session_affinity"`
+	SessionAffinityTTL     string   `json:"session_affinity_ttl"`
+	AcrossPriorities       bool     `json:"across_priorities"`
+	LogDecisions           bool     `json:"log_decisions"`
+	RevealAuthIDs          bool     `json:"reveal_auth_ids"`
+	// StateFileEnabled reports persistence without revealing the path.
+	StateFileEnabled bool `json:"state_file_enabled"`
 }
 
 // View returns the diagnostic form of c.
 func (c Config) View() ConfigView {
 	return ConfigView{
-		Mode:               c.Mode,
-		MinimumHeadroom:    c.MinimumHeadroom,
-		Fallback:           c.Fallback,
-		RefreshInterval:    c.RefreshInterval.String(),
-		StaleAfter:         c.StaleAfter.String(),
-		ProbeInterval:      c.ProbeInterval.String(),
-		MinResetHorizon:    c.MinResetHorizon.String(),
-		SwitchMargin:       c.SwitchMargin,
-		TieTolerance:       c.TieTolerance,
-		SessionAffinity:    c.SessionAffinity,
-		SessionAffinityTTL: c.SessionAffinityTTL.String(),
-		AcrossPriorities:   c.AcrossPriorities,
-		LogDecisions:       c.LogDecisions,
-		RevealAuthIDs:      c.RevealAuthIDs,
+		Mode:                   c.Mode,
+		MinimumHeadroom:        c.MinimumHeadroom,
+		SessionMinimumHeadroom: c.SessionMinimumHeadroom,
+		PaidFallback:           c.PaidFallback,
+		Fallback:               c.Fallback,
+		RefreshInterval:        c.RefreshInterval.String(),
+		StaleAfter:             c.StaleAfter.String(),
+		ProbeInterval:          c.ProbeInterval.String(),
+		MinResetHorizon:        c.MinResetHorizon.String(),
+		SwitchMargin:           c.SwitchMargin,
+		TieTolerance:           c.TieTolerance,
+		SessionAffinity:        c.SessionAffinity,
+		SessionAffinityTTL:     c.SessionAffinityTTL.String(),
+		AcrossPriorities:       c.AcrossPriorities,
+		LogDecisions:           c.LogDecisions,
+		RevealAuthIDs:          c.RevealAuthIDs,
+		StateFileEnabled:       c.StateFile != "",
 	}
 }

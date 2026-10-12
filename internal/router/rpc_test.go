@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -66,6 +67,31 @@ func TestRegisterAdvertisesCapabilities(t *testing.T) {
 	}
 	if h.Router.Config().Mode != ModeHeadroom || configured != 1 {
 		t.Errorf("config not applied: %+v, callbacks=%d", h.Router.Config(), configured)
+	}
+}
+
+// Every YAML key of Config is advertised to management clients, and nothing
+// else is: the two lists cannot drift apart.
+func TestConfigFieldsMatchConfigKeys(t *testing.T) {
+	h := &Handler{Router: New()}
+	fields := map[string]bool{}
+	for _, f := range h.registration(DefaultConfig()).Metadata.ConfigFields {
+		fields[f.Name] = true
+	}
+	keys := map[string]bool{}
+	rt := reflect.TypeOf(Config{})
+	for i := range rt.NumField() {
+		keys[rt.Field(i).Tag.Get("yaml")] = true
+	}
+	for key := range keys {
+		if !fields[key] {
+			t.Errorf("config key %q has no ConfigField", key)
+		}
+	}
+	for name := range fields {
+		if !keys[name] {
+			t.Errorf("ConfigField %q has no config key", name)
+		}
 	}
 }
 

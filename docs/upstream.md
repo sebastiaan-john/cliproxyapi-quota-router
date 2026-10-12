@@ -63,7 +63,21 @@ Registration (`internal/pluginhost/rpc_schema.go`, `rpcRegistration`):
 - `internal/runtime/executor/helps/usage_helpers.go` attaches the upstream response headers of each attempt to the usage record (`record.ResponseHeaders = GetResponseHeaders(ctx)`), and `internal/pluginhost/adapters_usage_translation.go` passes them to `usage.handle` unfiltered.
 - For Codex websocket traffic, `helps.ParseCodexQuotaEventHeaders` turns `codex.rate_limits` events into the same `X-Codex-*` header names and merges them into those headers.
 - `sdk/cliproxy/auth/quota_signals.go` lists the Codex header families: `X-Codex-{Primary,Secondary}-{Used-Percent,Window-Minutes,Reset-After-Seconds,Reset-At}`, `X-Codex-Limit-Reached`, `X-Codex-Allowed`, `X-Codex-Credits-*`, `X-Codex-Plan-Type`, `X-Codex-Active-Limit`, plus per-model `X-Codex-<name>-*` and `X-Codex-Additional-<name>-*`. The host keeps its own copy in `QuotaState.Signals` but no plugin API exposes it.
-- `host.auth.list` returns `pluginapi.HostAuthFileEntry` records with `id`, `disabled`, `unavailable`, `status` and `next_retry_after`. When the host has no auth manager it falls back to reading auth files from disk, and those entries have no `id`. `buildHostAuthFileEntry` (`internal/pluginhost/auth_callbacks.go`) skips auths without a `path` attribute unless they are runtime-only, so config-sourced credentials (`claude-api-key`, `codex-api-key` and similar) never appear. The plugin therefore forgets a snapshot only when an auth it saw listed before drops out of the list.
+- `host.auth.list` returns `pluginapi.HostAuthFileEntry` records with `id`, `auth_index`, `provider`, `disabled`, `unavailable`, `status`, `next_retry_after`, and also `email` and `path`. When the host has no auth manager it falls back to reading auth files from disk, and those entries have no `id`. `buildHostAuthFileEntry` (`internal/pluginhost/auth_callbacks.go`) skips auths without a `path` attribute unless they are runtime-only, so config-sourced credentials (`claude-api-key`, `codex-api-key` and similar) never appear. The plugin therefore forgets a snapshot only when an auth it saw listed before drops out of the list. The plugin never logs or persists an entry; it keeps only `id`, `disabled` and `next_retry_after`, and uses only `disabled` for routing.
+- `next_retry_after` in that list is the credential-level `auth.NextRetryAfter`. The host's own candidate filter (`availableAuthsForSelector`, `retryRoundAvailabilityForAuth` in `conductor_selection.go`; `availabilityBlock` in `selector.go`) applies both the credential-level and the per-model cooldown before the scheduler is called. An offered candidate has passed that filter, so this fork does not re-apply a cached retry time.
+
+## Host callbacks this plugin does not use
+
+Verified present in `v8.0.13`, listed so nobody has to guess:
+
+- `host.routing.reset_cooldown` (`pluginabi.MethodHostRoutingResetCooldown`, `internal/pluginhost/routing_callbacks.go`): takes `{"auth_index": ...}` and calls `Manager.ResetQuota` for that credential, skipping persistence of token files. This is the host-side primitive a cooldown-recovery feature would use. The fork does not call it; see `DESIGN.md`.
+- `host.affinity.lookup`: returns `unsupported` while a plugin scheduler is installed.
+- `host.auth.get`, `host.auth.get_runtime`, `host.auth.save`: credential access. Never called.
+
+## Lifecycle
+
+- `plugin.register` and `plugin.reconfigure` are sent with the plugin's YAML section. `plugin.quiesce` is sent to a plugin being replaced during `ApplyConfig`. `plugin.shutdown` is *not* sent as an RPC in `v8.0.13`: `ShutdownAllContext` and `UnloadPluginContext` call the native `shutdown` export directly (`shutdownPluginClient` in `internal/pluginhost/host.go`). The fork therefore flushes its state file inside `cliproxyPluginShutdown` as well as on `plugin.quiesce`.
+- `management.handle` receives `pluginapi.ManagementRequest` with `Method`, `Path`, `Headers`, `Query` and `Body []byte` (`ServeManagementHTTP` reads the HTTP body in full). Routes are declared with a `Method`; `POST` is accepted (`normalizeManagementRoute`). All of them sit under `/v0/management` behind the management key.
 
 ## Claude
 

@@ -24,11 +24,21 @@ const (
 	stateProbe    = "probe"    // quota-aware provider without fresh data
 	stateUnknown  = "unknown"  // no usable data; only used by the fallback
 	stateBlocked  = "blocked"  // excluded from selection
+	// statePaid marks a credential that is positively known to bill per request:
+	// an API key on a quota-aware provider, or a subscription account that is
+	// out of quota but still served from extra usage. It is only ever chosen
+	// when paid_fallback is enabled and nothing else is usable.
+	statePaid = "paid"
 )
 
-// RejectCode is the scheduler reject code returned when no candidate is usable.
-// The host turns it into the client-facing error code.
-const RejectCode = "quota_exhausted"
+// Scheduler reject codes. The host turns them into the client-facing error code.
+const (
+	// RejectCode is returned when no candidate is usable.
+	RejectCode = "quota_exhausted"
+	// RejectCodePaidOnly is returned when the only usable candidates would be
+	// billed per request and paid_fallback is off.
+	RejectCodePaidOnly = "paid_fallback_disabled"
+)
 
 // Decision outcomes.
 const (
@@ -87,6 +97,15 @@ type Router struct {
 	lister      AuthLister
 	refreshStop chan struct{}
 	refreshDone chan struct{}
+
+	// configMu serializes SetConfig transitions. persistMu guards the state
+	// file bookkeeping and is taken before r.mu, never after it.
+	configMu   sync.Mutex
+	persistMu  sync.Mutex
+	state      StateStatus
+	stateSaved bool
+	savedGen   uint64
+	savedPath  string
 }
 
 // Option customizes a Router.
@@ -126,14 +145,35 @@ func (r *Router) Config() Config {
 	return r.cfg
 }
 
-// SetConfig swaps the configuration and restarts the refresher if it runs.
+// SetConfig applies cfg in an order that keeps persisted bindings safe. A
+// running refresher is stopped while the old configuration is still active,
+// so its last save goes to the old destination. The new configuration is then
+// published and, if state_file changed, the save bookkeeping is reset and the
+// new file is loaded, all under the persistence lock, so no save can reach the
+// new file before its bindings are restored. The refresher restarts after.
 func (r *Router) SetConfig(cfg Config) {
+	r.configMu.Lock()
+	defer r.configMu.Unlock()
+	old := r.Config()
+	restart := old.RefreshInterval != cfg.RefreshInterval && r.refreshing()
+	if restart {
+		r.StopRefresher()
+	}
+	r.persistMu.Lock()
 	r.mu.Lock()
-	changed := r.cfg.RefreshInterval != cfg.RefreshInterval
 	r.cfg = cfg
 	r.mu.Unlock()
-	if changed && r.refreshing() {
-		r.StopRefresher()
+	var loadErr error
+	if cfg.StateFile != old.StateFile {
+		r.stateSaved, r.savedGen, r.savedPath = false, 0, ""
+		r.state = StateStatus{}
+		loadErr = r.loadLocked(cfg)
+	}
+	r.persistMu.Unlock()
+	if loadErr != nil && r.log != nil {
+		r.log("warn", "quota-router state load failed", map[string]any{"error": loadErr.Error()})
+	}
+	if restart {
 		r.StartRefresher()
 	}
 }
@@ -183,12 +223,41 @@ func (r *Router) pickLocked(req pluginapi.SchedulerPickRequest, now time.Time, c
 	selected, reason := "", ""
 	key := ""
 	if cfg.SessionAffinity {
-		key = sessionKey(req.Options.Headers, req.Options.Metadata)
+		key = bindingKey(sessionKey(req.Options.Headers, req.Options.Metadata), req.Model)
 		d.Session = key != ""
 		if bound, ok := r.aff.lookup(key, now); ok {
-			for _, v := range views {
-				if v.id == bound && v.State != stateBlocked {
-					selected, reason = bound, "session affinity"
+			for i, v := range views {
+				if !bound.matches(v.id) {
+					continue
+				}
+				affinityReason := "session affinity"
+				if v.State == stateBlocked && cfg.SessionMinimumHeadroom < cfg.MinimumHeadroom {
+					// The new-session headroom keeps fresh sessions off a nearly
+					// empty account. A session already cached there may run it
+					// down to the session headroom instead. Any state the session
+					// headroom leaves usable counts, including stale data that
+					// would be probed; exhaustion, rejection and disabled stay
+					// blocked at every headroom. byState still lists this index
+					// as blocked; that only matters when nothing is selected, and
+					// a selection is made right here.
+					if sv := r.classifyWith(req.Candidates[i], now, cfg, cfg.SessionMinimumHeadroom); sv.State != stateBlocked {
+						sv.Reason = "kept for bound session below new-session headroom"
+						views[i], v = sv, sv
+						affinityReason = "session affinity (kept for bound session below new-session headroom)"
+					}
+				}
+				switch {
+				case v.State == stateBlocked:
+				case v.State == statePaid:
+					// A session never keeps billing a credential while a
+					// subscription account could serve it. With paid_fallback on
+					// and nothing else usable, the existing binding is kept so the
+					// session does not bounce between paid credentials.
+					if cfg.PaidFallback && !anySubscriptionUsable(views) {
+						selected, reason = v.id, "session affinity (paid, nothing else usable)"
+					}
+				default:
+					selected, reason = v.id, affinityReason
 				}
 			}
 		}
@@ -202,6 +271,11 @@ func (r *Router) pickLocked(req pluginapi.SchedulerPickRequest, now time.Time, c
 		selected, reason = r.best(pool, views, byState[stateEligible], cfg)
 	}
 
+	// A delegated or unhandled answer lets the host choose from the full list,
+	// so it is only given when this plugin excluded nothing. Paid candidates
+	// count as excluded: the host would happily pick one.
+	excluded := len(byState[stateBlocked]) > 0 || len(byState[statePaid]) > 0
+
 	resp := pluginapi.SchedulerPickResponse{}
 	switch {
 	case selected != "":
@@ -209,10 +283,26 @@ func (r *Router) pickLocked(req pluginapi.SchedulerPickRequest, now time.Time, c
 		d.Outcome, d.Selected, d.Reason = OutcomeSelected, r.label(selected, cfg), reason
 		r.aff.bind(key, selected, now, cfg.SessionAffinityTTL)
 	case len(byState[stateUnknown]) > 0:
-		resp = r.fallback(pool, views, byState[stateUnknown], len(byState[stateBlocked]) > 0, cfg, &d)
+		resp = r.fallback(pool, views, byState[stateUnknown], excluded, cfg, &d)
 		if resp.AuthID != "" {
 			r.aff.bind(key, resp.AuthID, now, cfg.SessionAffinityTTL)
 		}
+	case len(byState[statePaid]) > 0 && cfg.PaidFallback:
+		// Last resort, by explicit opt-in only.
+		i := r.rotate("paid|"+pool, views, byState[statePaid])
+		id := views[i].id
+		resp = pluginapi.SchedulerPickResponse{AuthID: id, Handled: true}
+		d.Outcome, d.Selected = OutcomeSelected, r.label(id, cfg)
+		d.Reason = fmt.Sprintf("paid fallback among %d billed candidates; no subscription quota usable", len(byState[statePaid]))
+		r.aff.bind(key, id, now, cfg.SessionAffinityTTL)
+	case len(byState[statePaid]) > 0:
+		resp = pluginapi.SchedulerPickResponse{
+			Handled:      true,
+			Reject:       true,
+			RejectCode:   RejectCodePaidOnly,
+			RejectReason: "the only usable credentials are billed per request (API key or extra usage) and paid_fallback is off",
+		}
+		d.Outcome, d.Reason = OutcomeRejected, "only paid candidates remain and paid_fallback is off"
 	case len(views) == 0:
 		d.Outcome, d.Reason = OutcomeUnhandled, "no candidates"
 	default:
@@ -222,7 +312,7 @@ func (r *Router) pickLocked(req pluginapi.SchedulerPickRequest, now time.Time, c
 			Handled:      true,
 			Reject:       true,
 			RejectCode:   RejectCode,
-			RejectReason: "every candidate credential is out of quota, below minimum_headroom, disabled or cooling down",
+			RejectReason: "every candidate credential is out of quota, below minimum_headroom or disabled",
 		}
 		d.Outcome, d.Reason = OutcomeRejected, "every candidate is blocked"
 	}
@@ -231,39 +321,44 @@ func (r *Router) pickLocked(req pluginapi.SchedulerPickRequest, now time.Time, c
 }
 
 func (r *Router) classify(c pluginapi.SchedulerAuthCandidate, now time.Time, cfg Config) CandidateView {
+	return r.classifyWith(c, now, cfg, cfg.MinimumHeadroom)
+}
+
+// classifyWith classifies c with an explicit headroom threshold.
+func (r *Router) classifyWith(c pluginapi.SchedulerAuthCandidate, now time.Time, cfg Config, headroom float64) CandidateView {
 	v := CandidateView{id: c.ID, Auth: r.label(c.ID, cfg), Provider: c.Provider}
 	block := func(reason string) CandidateView {
 		v.State, v.Reason = stateBlocked, reason
 		return v
 	}
-	switch strings.ToLower(c.Status) {
-	case "disabled", "error":
-		return block("host status " + strings.ToLower(c.Status))
+	// "error" is not a veto: the host sets that aggregate status after any
+	// model-scoped failure and still offers the credential for the models it
+	// did not cool down. Credential-wide failures it does not offer at all.
+	if strings.EqualFold(c.Status, "disabled") {
+		return block("host status disabled")
 	}
-	// The host filters cooled-down auths per model before calling us. The cached
-	// host list only adds signals that cannot go stale: disabled, and retry times.
-	if hs, ok := r.store.HostState(c.ID, now, 3*cfg.RefreshInterval); ok {
-		switch {
-		case hs.Disabled:
-			return block("disabled")
-		case hs.NextRetryAfter.After(now):
-			return block("cooling down until " + hs.NextRetryAfter.UTC().Format(time.RFC3339))
-		}
+	// The host filters cooled-down and unavailable auths per model before calling
+	// us (availableAuthsForSelector upstream), so an offered candidate is
+	// available now. The cached host list adds only the disabled flag; a retry
+	// time it reported earlier is not a veto, because the host may have reset
+	// that cooldown since, or it may belong to another model.
+	if hs, ok := r.store.HostState(c.ID, now, 3*cfg.RefreshInterval); ok && hs.Disabled {
+		return block("disabled")
 	}
 	if !r.registry.Supports(c.Provider) {
 		v.State, v.Reason = stateUnknown, "no quota parser for provider"
 		return v
 	}
-	// API-key credentials reach the provider's public API, which does not send
-	// subscription quota headers. Probing them would only spend paid requests.
-	// If one does report quota, it is ranked like any other credential.
-	apiKey := strings.EqualFold(strings.TrimSpace(c.Attributes["auth_kind"]), "apikey")
+	// API-key credentials reach the provider's public API, which bills every
+	// request and sends no subscription quota headers. They are paid capacity:
+	// never probed and never ranked against subscription accounts.
+	if strings.EqualFold(strings.TrimSpace(c.Attributes["auth_kind"]), "apikey") {
+		v.State, v.Reason = statePaid, "API key: billed per request"
+		return v
+	}
 	unknown := func(reason string) CandidateView {
 		v.State, v.Reason = stateProbe, reason
-		switch {
-		case apiKey:
-			v.State, v.Reason = stateUnknown, reason+"; API key credentials are not probed"
-		case now.Sub(r.store.ProbedAt(c.ID)) < cfg.ProbeInterval:
+		if now.Sub(r.store.ProbedAt(c.ID)) < cfg.ProbeInterval {
 			v.State, v.Reason = stateUnknown, "awaiting quota data from recent probe"
 		}
 		return v
@@ -272,19 +367,26 @@ func (r *Router) classify(c pluginapi.SchedulerAuthCandidate, now time.Time, cfg
 	if !ok {
 		return unknown("no quota data yet")
 	}
-	a := assess(snap, now, cfg.MinimumHeadroom, cfg.MinResetHorizon, cfg.StaleAfter)
+	a := assess(snap, now, headroom, cfg.MinResetHorizon, cfg.StaleAfter)
 	rem := a.Remaining
 	v.Remaining, v.NextReset = &rem, a.NextReset
 	if !a.BlockedUntil.IsZero() {
 		until := a.BlockedUntil.UTC().Format(time.RFC3339)
-		// Anthropic keeps serving an account with extra usage enabled after its
-		// windows run out, billed to the account. Such an account is used only
-		// when nothing can be ranked, instead of being rejected outright.
+		// Exhaustion is judged without any configured headroom: a window at
+		// zero, a rejected window or a limit flag. Quota that is merely below
+		// the configured headroom is a routing exclusion for new sessions; a
+		// bound session may still use it, and it is never paid.
+		exhausted := headroom == 0 || !assess(snap, now, 0, cfg.MinResetHorizon, cfg.StaleAfter).BlockedUntil.IsZero()
+		if !exhausted {
+			return block(fmt.Sprintf("below %.0f%% headroom until %s", headroom*100, until))
+		}
+		// Anthropic keeps serving an exhausted account with extra usage enabled,
+		// billed to the account. That is paid capacity.
 		if !snap.LimitReached && snap.ExtraUsage && now.Sub(snap.ExtraUsageObservedAt) <= cfg.StaleAfter {
-			v.State, v.Reason = stateUnknown, "windows exhausted until "+until+", extra usage available"
+			v.State, v.Reason = statePaid, "windows exhausted until "+until+", extra usage billed per request"
 			return v
 		}
-		return block(fmt.Sprintf("below %.0f%% headroom until %s", cfg.MinimumHeadroom*100, until))
+		return block("out of quota until " + until)
 	}
 	if len(snap.Windows) == 0 {
 		// Only a limit flag was reported, e.g. X-Codex-Allowed: true. That is not
@@ -297,6 +399,18 @@ func (r *Router) classify(c pluginapi.SchedulerAuthCandidate, now time.Time, cfg
 	v.State = stateEligible
 	v.Score = score(cfg.Mode, a)
 	return v
+}
+
+// anySubscriptionUsable reports whether some candidate could serve the request
+// without billing: ranked, awaiting a probe, or unranked but not paid.
+func anySubscriptionUsable(views []CandidateView) bool {
+	for _, v := range views {
+		switch v.State {
+		case stateEligible, stateProbe, stateUnknown:
+			return true
+		}
+	}
+	return false
 }
 
 // best applies hysteresis and tie rotation among eligible candidates.
