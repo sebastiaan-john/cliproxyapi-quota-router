@@ -501,3 +501,51 @@ $ gofmt -l internal plugin
 
 The Windows build was cross-vetted only, not executed. The c-shared build and
 host loader smoke were not rerun in this round.
+
+# Cache identity round: real host ingress
+
+`internal/router/testdata/ingress-v8.0.23.json` holds scheduler.pick requests
+recorded by CLIProxyAPI's `test/scheduler_ingress_identity_test.go`, which sends
+Claude Code shaped HTTP requests through the real v8.0.23 Claude handler, auth
+manager and executors. `ingress_test.go` replays them through scheduler.pick.
+
+## Cycle 8: one model's move rewrote the session's binding
+
+Tests: `TestIngressModelSwitchKeepsMainModelPin` and
+`TestIngressProviderSwitchKeepsPin` in `internal/router/ingress_test.go`.
+
+Red:
+
+```
+$ go test -count=1 -run 'TestIngress' ./internal/router/
+--- FAIL: TestIngressModelSwitchKeepsMainModelPin (0.00s)
+    ingress_test.go:254: opus after haiku moved: picked "acct-b" (session affinity), want "acct-a"
+--- FAIL: TestIngressProviderSwitchKeepsPin (0.00s)
+    ingress_test.go:277: back on claude: picked "acct-b" (best smart score), want "acct-a"
+FAIL
+```
+
+Implementation: `bindingKey(sessionKey(...), req.Model)`; the thinking suffix
+is dropped from the model. Green: `go test -count=1 ./...` passes.
+
+## Cycle 9: an offered candidate with host status "error" was blocked
+
+Found by `TestQuotaRouterEndToEnd` (CLIProxyAPI `test/quota_router_e2e_test.go`,
+build tag `quotarouter_e2e`) with the built library: after a 429 on the haiku
+helper, the host offered acct-a for opus with status `error`, and the plugin
+classified it `blocked` ("host status error"), moving the opus session.
+
+Test: `TestOfferedErrorStatusKeepsBoundSession` in `internal/router/affinity_test.go`.
+
+Red:
+
+```
+$ go test -count=1 -run TestOfferedErrorStatusKeepsBoundSession ./internal/router
+--- FAIL: TestOfferedErrorStatusKeepsBoundSession (0.00s)
+    affinity_test.go:369: picked "b" (handled=true, outcome=selected, reason="best smart score"), want "a"
+FAIL
+```
+
+Implementation: only `disabled` vetoes an offered candidate. Green: the unit
+test and the end-to-end run pass; the same end-to-end run against the library
+built from 9d44b64 still fails at "S1 opus keeps its account after haiku moved".
