@@ -223,7 +223,7 @@ func (r *Router) pickLocked(req pluginapi.SchedulerPickRequest, now time.Time, c
 	selected, reason := "", ""
 	key := ""
 	if cfg.SessionAffinity {
-		key = sessionKey(req.Options.Headers, req.Options.Metadata)
+		key = bindingKey(sessionKey(req.Options.Headers, req.Options.Metadata), req.Model)
 		d.Session = key != ""
 		if bound, ok := r.aff.lookup(key, now); ok {
 			for i, v := range views {

@@ -229,3 +229,52 @@ func TestIngressFailoverPinsReplacement(t *testing.T) {
 	got, why = pickRPC(t, h, ingressReq(t, fx, "resumed+stream", claudeCandidates("acct-a", "acct-b")...))
 	mustPick(t, "after invalidate", got, why, "acct-b")
 }
+
+// Claude Code sends its haiku helper requests (titles, quota probes) under
+// the main session's ID. When the host excludes the bound account for the
+// helper model only, the helper moves, but the main model's cache stays on
+// its account.
+func TestIngressModelSwitchKeepsMainModelPin(t *testing.T) {
+	fx := loadIngress(t)
+	h, clock := ingressRouter(t)
+	r := h.Router
+	claudeQuota(r, clock, "acct-a", 0.2, 0.2)
+	claudeQuota(r, clock, "acct-b", 0.5, 0.5)
+	got, why := pickRPC(t, h, ingressReq(t, fx, "initial", claudeCandidates("acct-a", "acct-b")...))
+	mustPick(t, "opus", got, why, "acct-a")
+
+	// The host cooled acct-a for the haiku model only and offers acct-b.
+	got, why = pickRPC(t, h, ingressReq(t, fx, "helper-haiku-same-session", claudeCandidates("acct-b")...))
+	mustPick(t, "haiku with acct-a excluded", got, why, "acct-b")
+
+	clock.Advance(time.Minute)
+	claudeQuota(r, clock, "acct-a", 0.6, 0.6)
+	claudeQuota(r, clock, "acct-b", 0.0, 0.0)
+	got, why = pickRPC(t, h, ingressReq(t, fx, "resumed", claudeCandidates("acct-a", "acct-b")...))
+	mustPick(t, "opus after haiku moved", got, why, "acct-a")
+	got, why = pickRPC(t, h, ingressReq(t, fx, "helper-haiku-same-session+stream", claudeCandidates("acct-a", "acct-b")...))
+	mustPick(t, "haiku stays on its replacement", got, why, "acct-b")
+}
+
+// The same Claude Code session can ask for a model another provider serves.
+// That request cannot use the Claude account and must not erase the Claude pin.
+func TestIngressProviderSwitchKeepsPin(t *testing.T) {
+	fx := loadIngress(t)
+	h, clock := ingressRouter(t)
+	r := h.Router
+	claudeQuota(r, clock, "acct-a", 0.2, 0.2)
+	claudeQuota(r, clock, "acct-b", 0.5, 0.5)
+	observe(r, "codex-c", 80, 3*time.Hour)
+	got, why := pickRPC(t, h, ingressReq(t, fx, "initial", claudeCandidates("acct-a", "acct-b")...))
+	mustPick(t, "claude", got, why, "acct-a")
+	got, why = pickRPC(t, h, ingressReq(t, fx, "same-session-other-provider", codexCandidates("codex-c")...))
+	mustPick(t, "codex model", got, why, "codex-c")
+
+	clock.Advance(time.Minute)
+	claudeQuota(r, clock, "acct-a", 0.6, 0.6)
+	claudeQuota(r, clock, "acct-b", 0.0, 0.0)
+	got, why = pickRPC(t, h, ingressReq(t, fx, "resumed+stream", claudeCandidates("acct-a", "acct-b")...))
+	mustPick(t, "back on claude", got, why, "acct-a")
+	got, why = pickRPC(t, h, ingressReq(t, fx, "same-session-other-provider+stream", codexCandidates("codex-c")...))
+	mustPick(t, "back on codex", got, why, "codex-c")
+}

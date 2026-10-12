@@ -90,7 +90,7 @@ func TestStateFileRoundTripRestoresBinding(t *testing.T) {
 func writeBinding(t *testing.T, path, digest string, expires time.Time) {
 	t.Helper()
 	st := stateFile{Version: stateVersion, SavedAt: t0, Bindings: []stateBinding{
-		{Session: sessionKey(nil, map[string]any{"canonical_session_id": persistSess}), Auth: digest, Expires: expires},
+		{Session: bindingKey(sessionKey(nil, map[string]any{"canonical_session_id": persistSess}), restoreReq().Model), Auth: digest, Expires: expires},
 	}}
 	if err := writeStateFile(path, st); err != nil {
 		t.Fatal(err)

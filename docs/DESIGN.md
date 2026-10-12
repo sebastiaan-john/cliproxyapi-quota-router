@@ -27,6 +27,17 @@ existing, healthy binding as the first thing to honour, before any score:
   blocked, to learn that it recovered. Rejected: it spends a user's request on
   a likely 429, and after a manual allowance reset the operator knows better
   than a timer. The `invalidate` route replaces it.
+- A binding belongs to a session and a model. Prompt caches belong to one
+  account and one model, and Claude Code sends its haiku helper requests
+  (titles, quota probes) under the main session's ID, as it does any model the
+  user switches to, including models another provider serves. With one binding
+  per session, a helper request the host routed elsewhere (a cooldown for that
+  model only) or a request to another provider rewrote the session's binding,
+  and the main model then left the account holding its cache. Each model now
+  keeps its own binding; a thinking suffix such as `(high)` does not start a
+  new one. The session identity itself is the host's `canonical_session_id`,
+  so a subagent (`claude:<sid>:agent:<agent>`) has its own binding and is
+  ranked like a new session on its first request.
 - After a failover the session stays on the replacement. The host excludes
   already-tried auths within a request, the plugin binds to whatever served
   the request, and nothing in the plugin ever prefers the previous account.
@@ -84,8 +95,8 @@ intent. This does not and cannot restore a candidate the host did not offer.
 ## Persistence
 
 `state_file` is off by default. When on, the file holds the schema version, a
-save time, and for each binding the session key the router already uses (a
-truncated SHA-256 of the session identity), the full SHA-256 of the auth ID,
+save time, and for each binding the key the router already uses (a truncated
+SHA-256 of the session identity and the model), the full SHA-256 of the auth ID,
 and the expiry. Quota snapshots and cooldowns are not persisted: they age out
 in half an hour anyway and a restart is a fine moment to re-probe. The file is
 written to a 0600 temporary in the same directory and renamed into place.

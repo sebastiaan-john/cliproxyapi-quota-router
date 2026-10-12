@@ -59,6 +59,23 @@ func sessionKey(headers map[string][]string, metadata map[string]any) string {
 	return hex.EncodeToString(sum[:16])
 }
 
+// bindingKey scopes a session key to one model. Prompt caches belong to one
+// account and one model, so each model a session uses keeps its own binding:
+// when one model has to move (the host excluded the bound account for that
+// model only, or another provider serves it) the others stay where their
+// caches are. A thinking suffix such as "(high)" does not start a new binding.
+func bindingKey(session, model string) string {
+	if session == "" {
+		return ""
+	}
+	model = strings.ToLower(strings.TrimSpace(model))
+	if base, _, ok := strings.Cut(model, "("); ok {
+		model = strings.TrimSpace(base)
+	}
+	sum := sha256.Sum256([]byte(session + "\x00" + model))
+	return hex.EncodeToString(sum[:16])
+}
+
 // firstHeader matches case-insensitively because the map crossed a JSON
 // boundary and may not use canonical keys.
 func firstHeader(h http.Header, name string) string {
@@ -99,7 +116,8 @@ func (b binding) matches(id string) bool {
 	return b.digest != "" && b.digest == authDigest(id)
 }
 
-// affinity maps session keys to the auth they were last routed to.
+// affinity maps binding keys (session and model) to the auth they were last
+// routed to.
 type affinity struct {
 	mu       sync.Mutex
 	bindings map[string]binding
